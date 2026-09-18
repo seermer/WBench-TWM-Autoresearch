@@ -18,13 +18,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True, help="Model name (e.g. hunyuan)")
+    parser.add_argument("--work_dir", default="work_dirs",
+                        help="work_dirs root; absolute paths are used as-is")
     parser.add_argument("--model_path", default="weights/qwen3vl-a3b-visual-plausibility")
     parser.add_argument("--fps", type=float, default=2.0)
     parser.add_argument("--force", action="store_true", help="Force re-evaluate existing results")
     args = parser.parse_args()
 
-    video_dir = f"work_dirs/{args.model}/videos"
-    out_dir = f"work_dirs/{args.model}/evaluation/visual_plausibility"
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    work_dir = os.path.join(project_root, args.work_dir)  # absolute args.work_dir wins
+    model_path = os.path.join(project_root, args.model_path)
+    video_dir = os.path.join(work_dir, args.model, "videos")
+    out_dir = os.path.join(work_dir, args.model, "evaluation", "visual_plausibility")
     os.makedirs(out_dir, exist_ok=True)
 
     videos = sorted(glob.glob(os.path.join(video_dir, "case_*_combined.mp4")))
@@ -56,9 +61,9 @@ def main():
 
     from src.metrics.physical.visual_plausibility import PhysicalPlausibilityEvaluator
 
-    print(f"Loading model from {args.model_path}...")
+    print(f"Loading model from {model_path}...")
     t0 = time.time()
-    evaluator = PhysicalPlausibilityEvaluator(model_path=args.model_path)
+    evaluator = PhysicalPlausibilityEvaluator(model_path=model_path)
     print(f"Model loaded in {time.time()-t0:.1f}s\n")
 
     scores = []
