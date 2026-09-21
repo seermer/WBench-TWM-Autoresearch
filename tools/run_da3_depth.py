@@ -191,6 +191,11 @@ def main():
         total_ok = sum(r[0] for r in results)
         total_fail = sum(r[1] for r in results)
         print(f"Done: {total_ok} ok, {total_fail} fail")
+        if total_fail:
+            # Exit non-zero so the caller cannot mistake a partial run for a clean
+            # one: missing depth silently shrinks the case set that geometric /
+            # photometric consistency are averaged over (same class as megasam).
+            sys.exit(1)
 
 
 if __name__ == "__main__":

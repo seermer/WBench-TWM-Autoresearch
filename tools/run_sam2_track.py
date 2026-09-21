@@ -209,6 +209,8 @@ def _gpu_worker(gpu_id, worker_idx, n_workers, task_list, output_base, fps):
             fail += 1
 
     logger.info(f"{tag} Finished: {done}/{n_total} ok, {fail} fail")
+    if fail:
+        sys.exit(1)     # propagate to main(), which checks worker exit codes
 
 
 def _collect_tasks(case_dir, mask_dir, video_dir, output_base, force=False):
@@ -327,6 +329,9 @@ def main():
             logger.info(f"Done: {done}, Failed: {fail}")
 
         logger.info(f"Done: {done}, skipped: {skipped}, failed: {fail}")
+        if fail:
+            # Missing masks silently shrink the case set for mask-dependent metrics.
+            sys.exit(1)
         return
 
     parser.print_help()
