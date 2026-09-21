@@ -60,6 +60,29 @@ def extract_frames(video_path, frames_dir, stride=1):
     return saved
 
 
+
+def _ensure_symlink(src: Path, dst: Path) -> None:
+    """Point dst at src, repairing a stale or dangling link.
+
+    Path.exists() follows symlinks, so a link left behind by a moved checkout --
+    pointing at a path that no longer exists -- reads as "missing" while the name
+    is still taken. os.symlink then raises FileExistsError, and because the
+    callers run per case this failed every case of a run rather than once.
+    """
+    if not src.exists():
+        return
+    if dst.is_symlink():
+        try:
+            if Path(os.readlink(str(dst))).resolve() == src.resolve():
+                return          # already correct
+        except OSError:
+            pass
+        dst.unlink()            # stale or wrong target -- replace it
+    elif dst.exists():
+        return                  # a real directory/file: leave it alone
+    os.symlink(str(src), str(dst))
+
+
 def setup_env(device=None):
     env = os.environ.copy()
     if device is not None and "CUDA_VISIBLE_DEVICES" not in env:
@@ -74,21 +97,18 @@ def setup_env(device=None):
     # hub/torchhub/facebookresearch_dinov2_main/ points at weights/torch_hub/facebookresearch_dinov2_main/.
     torchhub_link = hub_dir / "torchhub"
     torchhub_src = torch_home / "torch_hub"
-    if torchhub_src.exists() and not torchhub_link.exists():
-        os.symlink(str(torchhub_src), str(torchhub_link))
+    _ensure_symlink(torchhub_src, torchhub_link)
 
     # Depth-Anything's localhub mode calls torch.hub.load('torchhub/facebookresearch_dinov2_main',
     # source='local'); that relative path is resolved against the subprocess cwd=MEGASAM_ROOT
     # (it does NOT go through $TORCH_HOME), so MEGASAM_ROOT/torchhub must point at the vendored
     # dinov2 hub code.
     megasam_torchhub = MEGASAM_ROOT / "torchhub"
-    if torchhub_src.exists() and not megasam_torchhub.exists() and not megasam_torchhub.is_symlink():
-        os.symlink(str(torchhub_src), str(megasam_torchhub))
+    _ensure_symlink(torchhub_src, megasam_torchhub)
 
     ckpt_src = MEGASAM_WEIGHTS / "torch_hub_checkpoints"
     ckpt_dst = hub_dir / "checkpoints"
-    if ckpt_src.exists() and not ckpt_dst.exists():
-        os.symlink(str(ckpt_src), str(ckpt_dst))
+    _ensure_symlink(ckpt_src, ckpt_dst)
 
     env["TORCH_HOME"] = str(torch_home)
     env["HF_HOME"] = str(MEGASAM_WEIGHTS / "huggingface")
@@ -209,6 +229,11 @@ def _gpu_worker_process(gpu_id, worker_idx, n_workers, task_list, target_fps):
             fail += 1
 
     print(f"  {tag} Done: {ok}/{n_total} ok, {fail} fail", flush=True)
+    if fail:
+        # Propagate to the parent: a worker that silently exits 0 after failing
+        # every case lets the caller believe the phase succeeded, and the metrics
+        # that depend on these poses then vanish from the report unnoticed.
+        sys.exit(1)
 
 
 def main():
@@ -263,6 +288,11 @@ def main():
             for p in processes:
                 p.join()
 
+            failed = [p.exitcode for p in processes if p.exitcode]
+            if failed:
+                print(f"Done: {len(failed)}/{len(processes)} workers reported failures",
+                      file=sys.stderr, flush=True)
+                sys.exit(1)
             print("Done: all workers finished")
 
 

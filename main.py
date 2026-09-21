@@ -86,6 +86,23 @@ def is_navi_case(case_data):
 # Phase 1: Precompute (SAM2, DA3, MegaSAM)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+def _run_precompute_step(cmd, env, label):
+    """Run a precompute tool and fail loudly if it does not succeed.
+
+    These used to be bare subprocess.run() calls whose return code was ignored.
+    When MegaSAM failed on every case the phase still printed "done" and exited
+    0, and the run went on to produce a report silently missing five metrics --
+    a wrong result that looked like a clean one.
+    """
+    proc = subprocess.run(cmd, env=env)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"{label} failed (rc={proc.returncode}); metrics depending on it would be "
+            f"missing from the report, so the run is stopped here rather than producing "
+            f"a partial report."
+        )
+
+
 def run_phase_precompute(model, video_dir, gpus, skip_sam2=False, skip_da3=False, skip_megasam=False):
     model_dir = os.path.dirname(video_dir)
     data_dir = os.path.join(PROJECT_ROOT, "data")
@@ -109,7 +126,7 @@ def run_phase_precompute(model, video_dir, gpus, skip_sam2=False, skip_da3=False
             "--output_base", masks_dir,
             "--gpus", gpu_str, "--fps", "5.0",
         ]
-        subprocess.run(cmd, env=env)
+        _run_precompute_step(cmd, env, "SAM2 mask tracking")
         print(f"  SAM2 done in {time.time()-t0:.0f}s")
 
     # DA3 Depth
@@ -123,7 +140,7 @@ def run_phase_precompute(model, video_dir, gpus, skip_sam2=False, skip_da3=False
             "--output_base", da3_dir,
             "--gpus", gpu_str, "--fps", "3",
         ]
-        subprocess.run(cmd, env=env)
+        _run_precompute_step(cmd, env, "DA3 depth estimation")
         print(f"  DA3 done in {time.time()-t0:.0f}s")
 
     # MegaSAM Poses (navi cases only)
@@ -152,7 +169,7 @@ def run_phase_precompute(model, video_dir, gpus, skip_sam2=False, skip_da3=False
             "--output_dir", megasam_dir,
             "--gpus", gpu_str, "--target_fps", "15",
         ]
-        subprocess.run(cmd, env=env)
+        _run_precompute_step(cmd, env, "MegaSAM camera poses")
         print(f"  MegaSAM done in {time.time()-t0:.0f}s")
 
 
