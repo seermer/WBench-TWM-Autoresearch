@@ -9,6 +9,7 @@ Requires pre-computed DA3 cache (depth.npy, extrinsics.npy, intrinsics.npy).
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import Any, Dict, List, Optional
 
@@ -64,9 +65,13 @@ def compute_case(
         intrinsics = intrinsics[:N]
         frames_resized = frames_resized[:N]
 
+        # Stable per-video seed: derived from the case file name, so it is the
+        # same on any machine and does not depend on worker/GPU assignment.
+        video_seed = int(hashlib.sha1(
+            os.path.basename(video_path).encode("utf-8")).hexdigest()[:8], 16)
         world_pts, colors, source_ids = _build_point_cloud(
             depth, extrinsics, intrinsics, frames_resized,
-            device=device, max_pts_per_frame=max_pts_per_frame)
+            device=device, max_pts_per_frame=max_pts_per_frame, seed=video_seed)
 
         if world_pts is None:
             return {"score": None, "error": "Point cloud construction failed"}
@@ -128,8 +133,18 @@ def _extract_frames_resized(video_path: str, depth_shape, fps: float) -> Optiona
 
 
 def _build_point_cloud(depth, extrinsics, intrinsics, frames_resized,
-                       device="cuda", max_pts_per_frame=5000, conf=None, conf_threshold=0.5):
-    """Build world-space point cloud from depth maps."""
+                       device="cuda", max_pts_per_frame=5000, conf=None, conf_threshold=0.5,
+                       seed=0):
+    """Build world-space point cloud from depth maps.
+
+    The per-frame point subsample is drawn from a generator seeded per frame, so
+    the same video scores the same value every time and two models are compared
+    on the SAME points (a paired comparison). It was previously an unseeded
+    torch.randperm, which made this metric move by up to 1.5e-3 between identical
+    runs -- noise that a model comparison cannot distinguish from a real change.
+    Seeding fixes which points are drawn, not how they are drawn: the sample is
+    still uniform, so the estimator is unbiased exactly as before.
+    """
     N, H, W = depth.shape
     all_pts, all_colors, all_ids = [], [], []
 
@@ -151,7 +166,10 @@ def _build_point_cloud(depth, extrinsics, intrinsics, frames_resized,
         ds = d[mask].double()
 
         if len(ds) > max_pts_per_frame:
-            idx = torch.randperm(len(ds), device=device)[:max_pts_per_frame]
+            # Seed per (call, frame) so the draw does not depend on how many
+            # other videos this worker happened to process first.
+            gen = torch.Generator(device=device).manual_seed(seed * 100003 + i)
+            idx = torch.randperm(len(ds), device=device, generator=gen)[:max_pts_per_frame]
             xs, ys, ds = xs[idx], ys[idx], ds[idx]
 
         pixels_h = torch.stack([
