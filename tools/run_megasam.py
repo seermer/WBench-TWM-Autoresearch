@@ -138,7 +138,12 @@ def run_single(video_path, output_path, device="0", target_fps=15.0,
     has_taskset = shutil.which("taskset") is not None
     t0 = time.time()
 
-    tmp_base = PROJECT_ROOT / "_megasam_tmp"
+    # Scratch lives beside the caller's output (e.g. <model_dir>/_megasam_tmp next
+    # to <model_dir>/megasam), not inside this repo: an evaluation must not write
+    # into WBench, and a killed run (SIGKILL skips TemporaryDirectory cleanup) then
+    # leaves its ~1 GB per case under the caller's run directory, where the caller
+    # can reclaim it, instead of accumulating here.
+    tmp_base = output_path.parent.parent / "_megasam_tmp"
     tmp_base.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f"megasam_{scene_name}_", dir=str(tmp_base)) as td:
         tp = Path(td)
