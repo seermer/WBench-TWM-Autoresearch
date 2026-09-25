@@ -997,6 +997,10 @@ def generate_report(model, eval_dir, video_dir, cases_dir):
         "n_navi": len(navi_ids),
         "full": agg(full_metrics),
         "navi": agg(navi_metrics),
+        # Per-case scores as parsed above, and the metric grouping, so consumers
+        # need not re-parse each metric's file layout.
+        "per_case": {cid: dict(sorted(s.items())) for cid, s in sorted(all_scores.items())},
+        "dimensions": DIMENSION_MAP,
     }
 
     report_path = os.path.join(eval_dir, "report.json")
