@@ -109,6 +109,8 @@ pip install huggingface_hub
 hf download meituan-longcat/WBench --repo-type dataset --local-dir data/ --exclude "splits/*"
 hf download meituan-longcat/WBench-weights --local-dir weights/
 
+# In the AutoResearcher project these envs are prefix envs at AutoResearcher/.envs/{wbench-main,wbench-vp};
+# activate with `conda activate <path>` (see AutoResearcher/docs/PORTABILITY.md).
 # Environment 1: wbench-main (all metrics except visual_plausibility)
 # 2nd arg = PyTorch's CUDA build — match it to YOUR system (check via `nvcc --version`):
 #   cu124 → CUDA 12.x    cu121 → CUDA 12.1    cu118 → CUDA 11.8
