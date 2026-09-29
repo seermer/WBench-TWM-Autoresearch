@@ -12,6 +12,7 @@ avoiding payload-too-large issues with many image frames.
 Supported models: doubao-seed-2-0-lite-260215, Doubao-Seed-2.0-lite
 """
 import base64
+import json
 import logging
 import os
 import re
@@ -183,7 +184,8 @@ class VLMClient:
         self.model_name = model_name or os.environ.get("VLM_MODEL_NAME", self.DEFAULT_MODEL)
         self.request_timeout = request_timeout
 
-        if self.model_name not in ALLOWED_MODELS:
+        # A self-hosted OpenAI-compatible server (VLM_API_URL set to a non-default URL) may serve any model.
+        if self.api_url == self.DEFAULT_API_URL and self.model_name not in ALLOWED_MODELS:
             raise ValueError(
                 f"Unsupported model: '{self.model_name}'. "
                 f"Allowed: {sorted(ALLOWED_MODELS)}"
@@ -212,6 +214,18 @@ class VLMClient:
         buf = BytesIO()
         image.save(buf, format="JPEG", quality=self.IMAGE_JPEG_QUALITY)
         return base64.b64encode(buf.getvalue()).decode()
+
+    @staticmethod
+    def _extra_body() -> dict:
+        """Request fields from VLM_EXTRA_BODY (a JSON object), e.g. to turn off a local model's thinking."""
+        raw = os.environ.get("VLM_EXTRA_BODY", "").strip()
+        return json.loads(raw) if raw else {}
+
+    def _apply_extra_body(self, payload: dict) -> None:
+        extra = self._extra_body()
+        if extra:
+            payload.pop("thinking", None)   # the Doubao-only field; the caller's fields replace it
+            payload.update(extra)
 
     # -- ARK Responses API format ------------------------------------------
 
@@ -243,6 +257,7 @@ class VLMClient:
             "max_output_tokens": max_tokens,
             "thinking": {"type": "disabled"},
         }
+        self._apply_extra_body(payload)
 
         attempt = 0
         while attempt < max_retries:
@@ -301,6 +316,7 @@ class VLMClient:
             "max_completion_tokens": max_tokens,
             "thinking": {"type": "disabled"},
         }
+        self._apply_extra_body(payload)
 
         attempt = 0
         while attempt < max_retries:
