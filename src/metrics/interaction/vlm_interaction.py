@@ -542,23 +542,20 @@ def evaluate_perspective_switch(
     def _run(idx):
         _, sub_id, question, _, images = all_tasks[idx]
         full_q = f"{question}\n\n{PS_REASON_FORMAT}"
-        try:
-            resp = client.ask(full_q, images, max_tokens=300,
-                              system_prompt=PS_SYSTEM_PROMPT)
-            reason = ""
-            rm = _re.search(r"Reason:\s*(.+?)(?=\n\s*Answer|\Z)", resp,
-                            _re.DOTALL | _re.IGNORECASE)
-            if rm:
-                reason = rm.group(1).strip()
-            am = _re.search(r"Answer[:\s]+(yes|no)", resp, _re.IGNORECASE)
-            if am:
-                answer = am.group(1).lower() == "yes"
-            else:
-                answer = resp.lower().strip().startswith("yes")
-            return idx, answer, reason
-        except Exception as e:
-            logger.warning(f"PS task {idx} ({sub_id}) failed: {e}")
-            return idx, None, str(e)
+        # A failed call raises: the case stays unscored rather than counting as a wrong answer.
+        resp = client.ask(full_q, images, max_tokens=300,
+                          system_prompt=PS_SYSTEM_PROMPT)
+        reason = ""
+        rm = _re.search(r"Reason:\s*(.+?)(?=\n\s*Answer|\Z)", resp,
+                        _re.DOTALL | _re.IGNORECASE)
+        if rm:
+            reason = rm.group(1).strip()
+        am = _re.search(r"Answer[:\s]+(yes|no)", resp, _re.IGNORECASE)
+        if am:
+            answer = am.group(1).lower() == "yes"
+        else:
+            answer = resp.lower().strip().startswith("yes")
+        return idx, answer, reason
 
     with ThreadPoolExecutor(max_workers=nproc) as executor:
         futures = {executor.submit(_run, i): i for i in range(len(all_tasks))}
@@ -622,23 +619,20 @@ def _execute_binary_tasks(
     def _run_single(idx):
         _, sub_id, question, expected, images = tasks[idx]
         full_q = f"{question}\n\n{REASON_FORMAT}Answer: Yes or No"
-        try:
-            response = client.ask(full_q, images, max_tokens=300,
-                                  system_prompt=EVAL_SYSTEM_PROMPT)
-            reason = ""
-            reason_match = re.search(r"Reason:\s*(.+?)(?=\n\s*Answer|\Z)",
-                                     response, re.DOTALL | re.IGNORECASE)
-            if reason_match:
-                reason = reason_match.group(1).strip()
-            answer_match = re.search(r"Answer[:\s]+(yes|no)", response, re.IGNORECASE)
-            if answer_match:
-                answer = answer_match.group(1).lower() == "yes"
-            else:
-                answer = response.lower().strip().startswith("yes")
-            return idx, answer, reason
-        except Exception as e:
-            logger.warning(f"{metric_name} task {idx} ({sub_id}) failed: {e}")
-            return idx, None, str(e)
+        # A failed call raises: the case stays unscored rather than counting as a wrong answer.
+        response = client.ask(full_q, images, max_tokens=300,
+                              system_prompt=EVAL_SYSTEM_PROMPT)
+        reason = ""
+        reason_match = re.search(r"Reason:\s*(.+?)(?=\n\s*Answer|\Z)",
+                                 response, re.DOTALL | re.IGNORECASE)
+        if reason_match:
+            reason = reason_match.group(1).strip()
+        answer_match = re.search(r"Answer[:\s]+(yes|no)", response, re.IGNORECASE)
+        if answer_match:
+            answer = answer_match.group(1).lower() == "yes"
+        else:
+            answer = response.lower().strip().startswith("yes")
+        return idx, answer, reason
 
     with ThreadPoolExecutor(max_workers=nproc) as executor:
         futures = {executor.submit(_run_single, i): i for i in range(len(tasks))}

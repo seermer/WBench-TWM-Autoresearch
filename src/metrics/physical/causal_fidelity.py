@@ -246,23 +246,16 @@ def evaluate_case(
                 _ask_score, client, q, frames, TRACK2_SYSTEM_PROMPT
             )] = dim_key
 
-        # Collect T1
-        try:
-            t1_score, t1_reason = t1_future.result()
-        except Exception as e:
-            logger.warning(f"Track1 failed: {e}")
-            t1_score, t1_reason = None, str(e)
+        # Collect T1. A failed call raises (here and below): the case stays unscored
+        # rather than being scored from the calls that happened to succeed.
+        t1_score, t1_reason = t1_future.result()
 
         # Collect T2
         t2_details = []
         valid_t2_scores = []
         for fut in as_completed(t2_futures):
             dim_key = t2_futures[fut]
-            try:
-                s, r = fut.result()
-            except Exception as e:
-                logger.warning(f"Track2 {dim_key} failed: {e}")
-                s, r = None, str(e)
+            s, r = fut.result()
             t2_details.append({
                 "dim": dim_key,
                 "dim_name": PHYSICS_DIMENSIONS[dim_key]["name"],
