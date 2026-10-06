@@ -41,6 +41,7 @@ warnings.filterwarnings("ignore")
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, PROJECT_ROOT)
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")  # --data overrides
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -105,7 +106,7 @@ def _run_precompute_step(cmd, env, label):
 
 def run_phase_precompute(model, video_dir, gpus, skip_sam2=False, skip_da3=False, skip_megasam=False):
     model_dir = os.path.dirname(video_dir)
-    data_dir = os.path.join(PROJECT_ROOT, "data")
+    data_dir = DATA_DIR
     gpu_str = ",".join(str(g) for g in gpus)
     env = os.environ.copy()
     env["CUDA_VISIBLE_DEVICES"] = gpu_str
@@ -569,7 +570,7 @@ def run_phase_gpu(model, video_dir, gpus, metrics=None):
     import multiprocessing as mp
 
     model_dir = os.path.dirname(video_dir)
-    data_dir = os.path.join(PROJECT_ROOT, "data")
+    data_dir = DATA_DIR
     cases_dir = os.path.join(data_dir, "cases")
     eval_dir = os.path.join(model_dir, "evaluation")
     os.makedirs(eval_dir, exist_ok=True)
@@ -761,7 +762,7 @@ def run_phase_vlm(model, video_dir, vlm_workers=8, metrics=None):
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     model_dir = os.path.dirname(video_dir)
-    data_dir = os.path.join(PROJECT_ROOT, "data")
+    data_dir = DATA_DIR
     cases_dir = os.path.join(data_dir, "cases")
     eval_dir = os.path.join(model_dir, "evaluation")
     os.makedirs(eval_dir, exist_ok=True)
@@ -1065,8 +1066,13 @@ def main():
     parser.add_argument("--skip_sam2", action="store_true")
     parser.add_argument("--skip_da3", action="store_true")
     parser.add_argument("--work_dir", type=str, default="work_dirs")
+    parser.add_argument("--data", type=str, default=None,
+                        help="Benchmark data folder holding cases/, images/, masks/ (default: data/)")
     parser.add_argument("--vlm_workers", type=int, default=8, help="VLM concurrent threads")
     args = parser.parse_args()
+    if args.data:
+        global DATA_DIR
+        DATA_DIR = os.path.abspath(args.data)
 
     # Single video mode
     if args.video:
@@ -1117,7 +1123,7 @@ def main():
     if args.phase in ("all", "report"):
         model_dir = os.path.dirname(video_dir)
         eval_dir = os.path.join(model_dir, "evaluation")
-        cases_dir = os.path.join(PROJECT_ROOT, "data", "cases")
+        cases_dir = os.path.join(DATA_DIR, "cases")
         report = generate_report(args.model, eval_dir, video_dir, cases_dir)
 
         # Print summary
