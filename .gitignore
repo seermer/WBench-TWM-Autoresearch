@@ -17,6 +17,7 @@ third_party/**/__pycache__/
 
 # Data (hosted on HuggingFace)
 data/
+data_*/
 
 # Work directories
 work_dirs/
