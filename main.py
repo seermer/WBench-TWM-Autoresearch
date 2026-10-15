@@ -346,6 +346,11 @@ def _get_applicable_cases(metric, videos, cases_dir, model_dir):
     return applicable
 
 
+def _done(result):
+    return (result.get("score") is not None or bool(result.get("summary"))
+            or result.get("accuracy") is not None)    # navigation_trajectory
+
+
 def _run_metric_on_gpu(gpu_id, metric, tasks, eval_dir, model_dir):
     """Single GPU worker for one metric: load model, process assigned cases, save."""
     import torch
@@ -398,7 +403,7 @@ def _run_metric_on_gpu(gpu_id, metric, tasks, eval_dir, model_dir):
         if os.path.exists(out_file):
             try:
                 existing = json.load(open(out_file))
-                if existing.get("score") is not None or existing.get("summary"):
+                if _done(existing):
                     done += 1
                     continue
             except Exception:
@@ -613,7 +618,7 @@ def run_phase_gpu(model, video_dir, gpus, metrics=None):
             if os.path.exists(out_file):
                 try:
                     existing = json.load(open(out_file))
-                    if existing.get("score") is not None or existing.get("summary"):
+                    if _done(existing):
                         continue
                 except Exception:
                     pass
