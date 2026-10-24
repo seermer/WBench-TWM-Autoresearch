@@ -41,3 +41,4 @@ homepage/
 image.png
 wbench_open_models_for_hf.csv
 _megasam_tmp/
+.env
