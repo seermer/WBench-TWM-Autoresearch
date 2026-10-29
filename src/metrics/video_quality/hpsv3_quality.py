@@ -1,6 +1,7 @@
 """HPSv3 human preference score — Qwen2-VL-7B based preference model."""
 import os
 import sys
+import tempfile
 from typing import Dict, Any, List
 
 import numpy as np
@@ -73,7 +74,7 @@ class HPSv3QualityMetric(BaseMetric):
     def compute(self, frames: List[Image.Image], **kwargs) -> Dict[str, Any]:
         tmp_paths = []
         for i, frame in enumerate(frames):
-            p = f"/tmp/_hpsv3_{os.getpid()}_{i}.png"
+            p = os.path.join(tempfile.gettempdir(), f"_hpsv3_{os.getpid()}_{i}.png")
             frame.save(p)
             tmp_paths.append(p)
         try:
