@@ -45,7 +45,7 @@ class SubjectConsistencyMetric(BaseMetric):
         if self._dinov2 is None:
             setup_torch_hub_dir()
             self._dinov2 = torch.hub.load(
-                'facebookresearch/dinov2', 'dinov2_vitb14', pretrained=True
+                'facebookresearch/dinov2:main', 'dinov2_vitb14', pretrained=True
             ).to(self.device).eval()
         return self._dinov2
 
