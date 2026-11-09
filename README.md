@@ -1,3 +1,22 @@
+## AutoResearcher live-11-08 setup
+
+For this experiment, use `live-11-08` in **AutoResearcher, WorldModel and WBench**,
+placed side by side. Follow the [AutoResearcher setup guide](https://github.com/seermer/AR-TWM-Autoresearch/blob/live-11-08/README.md)
+for environments, keys, weights and checks. Then follow the
+[animal + H100 launch guide](docs/LIVE-11-08.md) for a run without Hugging Face or GitHub uploads and with the simple panel.
+
+```bash
+# Fresh clone (run from the parent directory):
+git clone --branch live-11-08 --recurse-submodules git@github.com:seermer/WBench-TWM-Autoresearch.git WBench
+# Existing clone (run inside WBench):
+git fetch origin
+git switch live-11-08
+git branch --show-current     # must print live-11-08
+```
+
+The standalone upstream instructions below are reference material; use the
+AutoResearcher guide for this experiment's setup.
+
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/longcat-combine-dark.svg">
@@ -98,7 +117,7 @@ The leaderboard marks **Open Source** entries when both the inference code and t
 
 ```bash
 # Install
-git clone --recursive https://github.com/meituan-longcat/WBench.git
+git clone --branch live-11-08 --recursive git@github.com:seermer/WBench-TWM-Autoresearch.git WBench
 cd WBench
 
 # If you already cloned without submodules
